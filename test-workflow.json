@@ -1,0 +1,114 @@
+{
+  "name": "Zilliz Vector Store Test Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "start",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [240, 280]
+    },
+    {
+      "parameters": {
+        "operation": "createCollection",
+        "newCollectionName": "test_collection",
+        "vectorFieldName": "embedding",
+        "dimension": 1536,
+        "metricType": "COSINE"
+      },
+      "id": "create-collection",
+      "name": "Create Collection",
+      "type": "vectorStoreZilliz",
+      "typeVersion": 1,
+      "position": [440, 280],
+      "credentials": {
+        "zillizApi": {
+          "id": "your-zilliz-credential-id",
+          "name": "Zilliz API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collectionName": "test_collection",
+        "inputMode": "specifyData",
+        "data": "[{\"embedding\": [0.1, 0.2, 0.3], \"id\": 1, \"text\": \"Sample document\", \"category\": \"test\"}]"
+      },
+      "id": "insert-vectors",
+      "name": "Insert Test Data",
+      "type": "vectorStoreZillizInsert", 
+      "typeVersion": 1,
+      "position": [640, 280],
+      "credentials": {
+        "zillizApi": {
+          "id": "your-zilliz-credential-id",
+          "name": "Zilliz API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "collectionName": "test_collection",
+        "vectorFieldName": "embedding",
+        "queryMode": "vectorSearch",
+        "vectorSource": "specify",
+        "queryVector": "[0.1, 0.2, 0.3]",
+        "options": {
+          "limit": 5,
+          "outputFields": "*",
+          "includeDistance": true
+        }
+      },
+      "id": "search-vectors",
+      "name": "Search Similar Vectors",
+      "type": "vectorStoreZillizLoad",
+      "typeVersion": 1,
+      "position": [840, 280],
+      "credentials": {
+        "zillizApi": {
+          "id": "your-zilliz-credential-id",
+          "name": "Zilliz API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [
+        [
+          {
+            "node": "Create Collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Collection": {
+      "main": [
+        [
+          {
+            "node": "Insert Test Data",
+            "type": "main", 
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert Test Data": {
+      "main": [
+        [
+          {
+            "node": "Search Similar Vectors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

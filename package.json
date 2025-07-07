@@ -1,7 +1,7 @@
 {
 	"name": "n8n-nodes-zilliz",
-	"version": "0.2.1",
-	"description": "AI Agent-optimized Zilliz Cloud vector database node for n8n - RAG systems and semantic search made simple",
+	"version": "0.2.5",
+	"description": "n8n community node for Zilliz vector database",
 	"keywords": [
 		"n8n-community-node-package",
 		"zilliz",
@@ -14,7 +14,7 @@
 		"machine-learning"
 	],
 	"license": "MIT",
-	"homepage": "https://github.com/QixYuanmeng/n8n-nodes-zilliz",
+	"homepage": "",
 	"author": {
 		"name": "QixYuanmeng",
 		"email": "3286046540@qq.com"
@@ -44,7 +44,9 @@
 			"dist/credentials/ZillizApi.credentials.js"
 		],
 		"nodes": [
-			"dist/nodes/Zilliz/Zilliz.node.js"
+			"dist/nodes/VectorStoreZilliz/VectorStoreZilliz.node.js",
+			"dist/nodes/VectorStoreZillizInsert/VectorStoreZillizInsert.node.js",
+			"dist/nodes/VectorStoreZillizLoad/VectorStoreZillizLoad.node.js"
 		]
 	},
 	"devDependencies": {
@@ -54,6 +56,9 @@
 		"gulp": "^5.0.0",
 		"prettier": "^3.5.3",
 		"typescript": "^5.8.2"
+	},
+	"dependencies": {
+		"axios": "^1.6.0"
 	},
 	"peerDependencies": {
 		"n8n-workflow": "*"

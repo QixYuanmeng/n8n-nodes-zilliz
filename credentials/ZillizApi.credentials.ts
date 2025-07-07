@@ -1,4 +1,4 @@
-import {
+import type {
 	IAuthenticateGeneric,
 	ICredentialTestRequest,
 	ICredentialType,
@@ -7,76 +7,29 @@ import {
 
 export class ZillizApi implements ICredentialType {
 	name = 'zillizApi';
+
 	displayName = 'Zilliz API';
-	documentationUrl = 'https://docs.zilliz.com.cn/reference/restful';
+
+	documentationUrl = 'https://docs.zilliz.com.cn/docs/quick-start';
+
 	properties: INodeProperties[] = [
 		{
 			displayName: 'Cluster Endpoint',
 			name: 'clusterEndpoint',
 			type: 'string',
+			placeholder: 'https://in03-xxxxxxxxxxxxxxxx.api.gcp-us-west1.zillizcloud.com',
 			default: '',
-			placeholder: 'https://your-cluster-id.api.region.zillizcloud.com',
-			description: 'The endpoint URL of your Zilliz Cloud cluster',
+			description: 'The cluster endpoint URL from your Zilliz Cloud console',
 			required: true,
-		},
-		{
-			displayName: 'Authentication Method',
-			name: 'authMethod',
-			type: 'options',
-			options: [
-				{
-					name: 'API Key',
-					value: 'apiKey',
-				},
-				{
-					name: 'Username and Password',
-					value: 'userPass',
-				},
-			],
-			default: 'apiKey',
-			description: 'Method to authenticate with Zilliz Cloud',
 		},
 		{
 			displayName: 'API Key',
 			name: 'apiKey',
 			type: 'string',
-			typeOptions: {
-				password: true,
-			},
+			typeOptions: { password: true },
 			default: '',
-			description: 'The API key for your Zilliz Cloud account',
-			displayOptions: {
-				show: {
-					authMethod: ['apiKey'],
-				},
-			},
-		},
-		{
-			displayName: 'Username',
-			name: 'username',
-			type: 'string',
-			default: '',
-			description: 'Username for your Zilliz Cloud cluster',
-			displayOptions: {
-				show: {
-					authMethod: ['userPass'],
-				},
-			},
-		},
-		{
-			displayName: 'Password',
-			name: 'password',
-			type: 'string',
-			typeOptions: {
-				password: true,
-			},
-			default: '',
-			description: 'Password for your Zilliz Cloud cluster',
-			displayOptions: {
-				show: {
-					authMethod: ['userPass'],
-				},
-			},
+			description: 'API Key from your Zilliz Cloud console',
+			required: true,
 		},
 	];
 
@@ -84,19 +37,14 @@ export class ZillizApi implements ICredentialType {
 		type: 'generic',
 		properties: {
 			headers: {
-				Authorization: {
-					$if: {
-						'={{ $credentials.authMethod === "apiKey" }}': '=Bearer {{ $credentials.apiKey }}',
-						$else: '=Bearer {{ $credentials.username }}:{{ $credentials.password }}',
-					},
-				},
+				Authorization: '=Bearer {{$credentials.apiKey}}',
 			},
 		},
 	};
 
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: '={{ $credentials.clusterEndpoint }}',
+			baseURL: '={{$credentials.clusterEndpoint}}',
 			url: '/v2/vectordb/collections/list',
 			method: 'POST',
 			headers: {
