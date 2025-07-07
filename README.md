@@ -1,141 +1,333 @@
 # n8n-nodes-zilliz
 
-这是一个用于连接 Zilliz Cloud 向量数据库的 n8n 社区节点。Zilliz Cloud 是一个完全托管的向量数据库服务，专为 AI 应用程序设计。
+一个专为 AI Agent 和 RAG 系统设计的 Zilliz Cloud 向量数据库 n8n 社区节点，提供类似 Pinecone 的 AI Agent 工具体验。
 
-## 功能特性
+## 🚀 为什么选择这个节点？
 
-### Collection（集合）操作
-- **List**: 列出所有集合
-- **Create**: 创建新的集合
-- **Get**: 获取集合详细信息
-- **Delete**: 删除集合
+与传统的数据库节点不同，这个节点专门为 **AI Agent** 和 **RAG 系统**设计，提供：
 
-### Vector（向量）操作
-- **Insert**: 向集合中插入向量数据
-- **Search**: 基于向量进行相似性搜索
-- **Query**: 使用过滤条件查询向量
-- **Delete**: 从集合中删除向量
+- 🤖 **AI Agent 工具接口**: 像 Pinecone 节点一样，作为 AI Agent 的专用工具
+- 📚 **RAG 系统优化**: 专门针对检索增强生成场景优化的操作
+- � **简化的工作流**: 减少复杂的数据库操作，专注于 AI 应用场景
+- ⚡ **高性能向量搜索**: 基于 Zilliz Cloud 的企业级向量数据库
 
-## 安装
+## 🎯 核心 AI Agent 操作
 
+### 🛠️ Setup Collection
+为 AI Agent 创建向量存储
+```
+目标：为 RAG 系统准备数据存储
+用例：初始化知识库、创建文档索引
+```
+
+### 📝 Create or Update (Upsert)
+智能文档存储和更新
+```
+目标：存储知识库内容
+用例：导入文档、更新知识库、增量学习
+示例数据格式：
+[{
+  "ID": "doc_1",
+  "vector": [0.1, 0.2, 0.3, ...],  // OpenAI 嵌入向量
+  "metadata": {
+    "text": "这是文档内容",
+    "source": "knowledge_base.pdf",
+    "category": "技术文档"
+  }
+}]
+```
+
+### 🔍 Search
+语义搜索和相似度检索
+```
+目标：为 AI Agent 提供相关上下文
+用例：RAG 检索、相似文档查找、知识检索
+输入：查询向量 + Top-K + 过滤条件
+输出：相似度得分 + 元数据 + 文档内容
+```
+
+### 📋 Query
+基于元数据的精确查询
+```
+目标：按条件检索特定文档
+用例：按标签查找、按来源筛选、条件查询
+示例过滤：category == "FAQ" and source == "user_manual"
+```
+
+### 🗑️ Delete
+清理和维护向量存储
+```
+目标：删除过时或无效的文档
+用例：知识库清理、内容更新、空间管理
+```
+
+## 🔧 快速开始
+
+### 1. 安装
 ```bash
 npm install n8n-nodes-zilliz
 ```
 
-## 凭据配置
+### 2. 配置凭据
+- **Cluster Endpoint**: `https://your-cluster-id.api.region.zillizcloud.com`
+- **Authentication**: API Key 或 用户名密码
 
-在使用此节点之前，您需要配置 Zilliz API 凭据：
+### 3. RAG 工作流示例
 
-1. **集群端点**: 您的 Zilliz Cloud 集群端点 URL
-   - 格式: `https://your-cluster-id.api.region.zillizcloud.com`
+#### 基本 RAG 工作流
+```
+文档输入 → OpenAI Embeddings → Zilliz Upsert → 存储完成
+### 2. 配置认证
+在 n8n 中创建 Zilliz API 凭证：
+- **Cluster Endpoint**: https://your-cluster.zillizcloud.com  
+- **Authentication**: API Key 或 用户名/密码
 
-2. **认证方式**: 选择以下任一方式
-   - **API Key**: 使用 Zilliz Cloud API 密钥
-   - **Username and Password**: 使用集群用户名和密码
+### 3. 第一个 AI Agent 工作流
 
-## 使用示例
+#### 📋 RAG 系统完整流程
+```
+文档输入 → OpenAI Embeddings → Zilliz Upsert → 知识库构建
+查询输入 → OpenAI Embeddings → Zilliz Search → 检索结果 → OpenAI Chat → 回答
+```
 
-### 创建集合
+#### 🛠️ 具体配置示例
 
-1. 选择 `Collection` 资源和 `Create` 操作
-2. 输入集合名称
-3. 配置字段定义：
-   ```json
-   [
-     {
-       "fieldName": "id",
-       "dataType": "INT64",
-       "isPrimary": true
-     },
-     {
-       "fieldName": "vector",
-       "dataType": "FLOAT_VECTOR",
-       "dimension": 128
-     },
-     {
-       "fieldName": "text",
-       "dataType": "VARCHAR",
-       "maxLength": 512
-     }
-   ]
-   ```
+**步骤 1: 设置集合（一次性）**
+```javascript
+// Zilliz - Setup Collection
+{
+  "operation": "setupCollection",
+  "setupAction": "create",
+  "collectionName": "ai_knowledge_base",
+  "dimension": 1536,        // OpenAI ada-002 维度
+  "metricType": "COSINE",   // 余弦相似度
+  "indexType": "AUTOINDEX"  // 自动索引优化
+}
+```
 
-### 插入向量数据
+**步骤 2: 知识库构建**
+```javascript
+// 文档 → OpenAI Embeddings → Zilliz Create or Update
+{
+  "operation": "upsert",
+  "collectionName": "ai_knowledge_base",
+  "vectors": [
+    {
+      "ID": "doc_{{$json.id}}",
+      "vector": "={{$json.embedding}}", // 来自 OpenAI Embeddings
+      "metadata": {
+        "text": "{{$json.content}}",
+        "source": "{{$json.source}}",
+        "category": "{{$json.category}}",
+        "timestamp": "{{new Date().toISOString()}}"
+      }
+    }
+  ]
+}
+```
 
-1. 选择 `Vector` 资源和 `Insert` 操作
-2. 输入集合名称
-3. 提供数据（JSON 格式）：
-   ```json
-   [
-     {
-       "id": 1,
-       "vector": [0.1, 0.2, 0.3, ...],
-       "text": "这是一个示例文本"
-     },
-     {
-       "id": 2, 
-       "vector": [0.4, 0.5, 0.6, ...],
-       "text": "另一个示例文本"
-     }
-   ]
-   ```
+**步骤 3: AI Agent 检索**
+```javascript
+// 用户查询 → OpenAI Embeddings → Zilliz Search
+{
+  "operation": "search",
+  "collectionName": "ai_knowledge_base",
+  "queryVector": "={{$json.embedding}}", // 查询的向量化结果
+  "topK": 3,                             // 返回最相关的3个结果
+  "includeMetadata": true,               // 包含文档内容
+  "includeVectors": false,               // 不需要返回向量
+  "searchFilter": ""                     // 可选：category == "FAQ"
+}
+```
 
-### 向量搜索
+**步骤 4: AI 生成回答**
+```javascript
+// Zilliz 检索结果 → OpenAI Chat (Context + Query)
+{
+  "model": "gpt-4",
+  "messages": [
+    {
+      "role": "system", 
+      "content": "基于以下上下文回答用户问题：\n{{$('Zilliz').all().map(item => item.json.matches.map(m => m.metadata.text).join('\n')).join('\n')}}"
+    },
+    {
+      "role": "user",
+      "content": "{{$json.query}}"
+    }
+  ]
+}
+```
 
-1. 选择 `Vector` 资源和 `Search` 操作
-2. 输入集合名称
-3. 提供搜索向量：
-   ```json
-   [0.1, 0.2, 0.3, ...]
-   ```
-4. 设置搜索参数：
-   - **Limit**: 返回结果数量限制
-   - **Filter**: 过滤条件（可选）
-   - **Output Fields**: 要返回的字段列表
+## 🔄 AI Agent 工作流模板
 
-### 查询向量
+### 模板 1: 智能客服机器人
+```
+1. Webhook (接收用户问题)
+2. OpenAI Embeddings (问题向量化)
+3. Zilliz Search (检索相关 FAQ)
+4. OpenAI Chat (生成个性化回答)
+5. HTTP Response (返回回答)
+```
 
-1. 选择 `Vector` 资源和 `Query` 操作
-2. 输入集合名称
-3. 设置查询参数：
-   - **Filter**: 过滤条件（必需）
-   - **Limit**: 返回结果数量限制
-   - **Output Fields**: 要返回的字段列表
+### 模板 2: 文档知识库更新
+```
+1. HTTP Request (获取新文档)
+2. Text Splitter (文档分块)
+3. OpenAI Embeddings (文档向量化)
+4. Zilliz Upsert (批量存储)
+5. Slack (通知更新完成)
+```
 
-## API 文档
+### 模板 3: 语义搜索API
+```
+1. Webhook (搜索请求)
+2. OpenAI Embeddings (查询向量化)
+3. Zilliz Search (语义检索)
+4. Data Transform (结果格式化)
+5. HTTP Response (返回检索结果)
+```
 
-更多关于 Zilliz Cloud RESTful API 的信息，请参考：
-- [Zilliz Cloud 快速开始](https://docs.zilliz.com.cn/docs/quick-start)
-- [Zilliz Cloud RESTful API 参考](https://docs.zilliz.com.cn/reference/restful)
+## 🛠️ 高级用法
 
-## 支持的数据类型
+### 批量文档处理
+```javascript
+{
+  "operation": "upsert",
+  "vectors": [
+    {
+      "ID": "doc1",
+      "vector": [0.1, 0.2, ...],
+      "metadata": {"text": "内容1", "category": "tech"}
+    },
+    {
+      "ID": "doc2", 
+      "vector": [0.3, 0.4, ...],
+      "metadata": {"text": "内容2", "category": "science"}
+    }
+  ]
+}
+```
 
-- **INT64**: 64位整数
-- **VARCHAR**: 可变长度字符串
-- **FLOAT_VECTOR**: 浮点向量
-- **BINARY_VECTOR**: 二进制向量
-- **FLOAT**: 浮点数
-- **DOUBLE**: 双精度浮点数
-- **BOOL**: 布尔值
+### 智能过滤查询
+```javascript
+{
+  "operation": "query",
+  "queryFilter": "category == \"FAQ\" and timestamp > \"2024-01-01\"",
+  "outputFields": "ID, text, category",
+  "limit": 50
+}
+```
 
-## 常见用例
+## 🔗 与其他 AI 节点集成
 
-1. **AI Agent 知识库**: 存储和检索文档向量
-2. **推荐系统**: 基于用户偏好向量进行推荐
-3. **图像搜索**: 存储和搜索图像特征向量
-4. **语义搜索**: 基于文本语义进行搜索
+### ✅ OpenAI Embeddings
+```
+Text Input → OpenAI Embeddings → Zilliz Upsert/Search
+```
 
-## 注意事项
+### ✅ 从 Pinecone 迁移
+Zilliz 节点提供与 Pinecone 相似的 API 体验，迁移简单快速。
 
-- 在插入数据后立即进行搜索可能返回空结果，建议等待一段时间
-- 向量字段必须创建索引才能进行搜索
-- 确保向量维度与集合定义一致
-- 过滤表达式的语法请参考 Zilliz Cloud 文档
+### ✅ LangChain 工具链
+```
+LangChain Text Splitter → OpenAI Embeddings → Zilliz Vector Store
+```
 
-## 许可证
+## � 输出格式
 
-MIT
+### Search 操作返回
+```javascript
+{
+  "matches": [
+    {
+      "id": "doc_001",
+      "score": 0.95,              // 相似度得分
+      "metadata": {               // 文档元数据
+        "text": "文档内容...",
+        "source": "knowledge_base.pdf",
+        "category": "技术文档"
+      }
+    }
+  ],
+  "searchStats": {
+    "totalResults": 3,
+    "topK": 5
+  }
+}
+```
 
-## 贡献
+### Query 操作返回
+```javascript
+{
+  "results": [
+    {
+      "ID": "doc_001",
+      "text": "查询到的文档内容",
+      "category": "FAQ",
+      "timestamp": "2024-01-01"
+    }
+  ],
+  "queryStats": {
+    "totalResults": 1,
+    "filter": "category == \"FAQ\"",
+    "limit": 50
+  }
+}
+```
 
-欢迎提交 issue 和 pull request！
+## 🚨 使用建议
+
+- **向量维度一致性**: 确保所有向量维度与集合配置一致（如 OpenAI ada-002 使用 1536 维）
+- **相似度指标**: 推荐使用 COSINE 相似度用于文本嵌入场景
+- **批量处理**: 大批量操作建议分批处理，每批不超过 1000 条记录
+- **元数据设计**: 合理设计元数据结构，支持后续的过滤和查询需求
+- **错误处理**: 在 AI Agent 工作流中启用"Continue on Fail"以提高鲁棒性
+
+## 💡 最佳实践
+
+### 🎯 向量维度选择
+- **OpenAI ada-002**: 1536 维，适合通用文本嵌入
+- **OpenAI text-embedding-3-small**: 1536 维，更高效
+- **自定义模型**: 根据具体模型确定维度
+
+### 🔍 搜索优化
+- 使用适当的 Top-K 值（通常 3-10 个结果）
+- 结合元数据过滤提高检索精度
+- 在 AI Agent 中缓存常用查询结果
+
+### 📊 监控和维护
+- 定期检查集合大小和性能
+- 监控搜索延迟和准确性
+- 及时清理过时的文档数据
+
+## 🌟 与 Pinecone 对比
+
+| 特性 | Zilliz | Pinecone |
+|------|--------|----------|
+| 🔧 易用性 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| 💰 成本 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| 🚀 性能 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| 🌍 部署选择 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+| 🔍 过滤功能 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+
+## 📖 学习资源
+
+- [Zilliz Cloud 官方文档](https://docs.zilliz.com.cn/)
+- [OpenAI Embeddings 指南](https://platform.openai.com/docs/guides/embeddings)
+- [RAG 系统设计最佳实践](https://docs.zilliz.com.cn/docs/rag-overview)
+- [向量数据库选型指南](https://zilliz.com/learn/what-is-vector-database)
+
+## 🤝 社区支持
+
+- **GitHub Issues**: [报告问题和建议](https://github.com/QixYuanmeng/n8n-nodes-zilliz/issues)
+- **讨论区**: [n8n 社区论坛](https://community.n8n.io/)
+- **技术支持**: [Zilliz 技术支持](https://zilliz.com/support)
+
+## 🔄 版本历史
+
+- **v0.1.0**: 初始版本，支持基础向量操作
+- **当前版本**: AI Agent 优化版本，提供类 Pinecone 体验
+
+## 📄 许可证
+
+MIT License - 查看 [LICENSE](LICENSE.md) 文件了解详情。
