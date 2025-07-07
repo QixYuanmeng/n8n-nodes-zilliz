@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-zilliz",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "AI Agent-optimized Zilliz Cloud vector database node for n8n - RAG systems and semantic search made simple",
 	"keywords": [
 		"n8n-community-node-package",
