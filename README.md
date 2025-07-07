@@ -1,48 +1,141 @@
-![Banner image](https://user-images.githubusercontent.com/10284570/173569848-c624317f-42b1-45a6-ab09-f0ea3c247648.png)
+# n8n-nodes-zilliz
 
-# n8n-nodes-starter
+这是一个用于连接 Zilliz Cloud 向量数据库的 n8n 社区节点。Zilliz Cloud 是一个完全托管的向量数据库服务，专为 AI 应用程序设计。
 
-This repo contains example nodes to help you get started building your own custom integrations for [n8n](https://n8n.io). It includes the node linter and other dependencies.
+## 功能特性
 
-To make your custom node available to the community, you must create it as an npm package, and [submit it to the npm registry](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry).
+### Collection（集合）操作
+- **List**: 列出所有集合
+- **Create**: 创建新的集合
+- **Get**: 获取集合详细信息
+- **Delete**: 删除集合
 
-If you would like your node to be available on n8n cloud you can also [submit your node for verification](https://docs.n8n.io/integrations/creating-nodes/deploy/submit-community-nodes/).
+### Vector（向量）操作
+- **Insert**: 向集合中插入向量数据
+- **Search**: 基于向量进行相似性搜索
+- **Query**: 使用过滤条件查询向量
+- **Delete**: 从集合中删除向量
 
-## Prerequisites
+## 安装
 
-You need the following installed on your development machine:
+```bash
+npm install n8n-nodes-zilliz
+```
 
-* [git](https://git-scm.com/downloads)
-* Node.js and npm. Minimum version Node 20. You can find instructions on how to install both using nvm (Node Version Manager) for Linux, Mac, and WSL [here](https://github.com/nvm-sh/nvm). For Windows users, refer to Microsoft's guide to [Install NodeJS on Windows](https://docs.microsoft.com/en-us/windows/dev-environment/javascript/nodejs-on-windows).
-* Install n8n with:
-  ```
-  npm install n8n -g
-  ```
-* Recommended: follow n8n's guide to [set up your development environment](https://docs.n8n.io/integrations/creating-nodes/build/node-development-environment/).
+## 凭据配置
 
-## Using this starter
+在使用此节点之前，您需要配置 Zilliz API 凭据：
 
-These are the basic steps for working with the starter. For detailed guidance on creating and publishing nodes, refer to the [documentation](https://docs.n8n.io/integrations/creating-nodes/).
+1. **集群端点**: 您的 Zilliz Cloud 集群端点 URL
+   - 格式: `https://your-cluster-id.api.region.zillizcloud.com`
 
-1. [Generate a new repository](https://github.com/n8n-io/n8n-nodes-starter/generate) from this template repository.
-2. Clone your new repo:
+2. **认证方式**: 选择以下任一方式
+   - **API Key**: 使用 Zilliz Cloud API 密钥
+   - **Username and Password**: 使用集群用户名和密码
+
+## 使用示例
+
+### 创建集合
+
+1. 选择 `Collection` 资源和 `Create` 操作
+2. 输入集合名称
+3. 配置字段定义：
+   ```json
+   [
+     {
+       "fieldName": "id",
+       "dataType": "INT64",
+       "isPrimary": true
+     },
+     {
+       "fieldName": "vector",
+       "dataType": "FLOAT_VECTOR",
+       "dimension": 128
+     },
+     {
+       "fieldName": "text",
+       "dataType": "VARCHAR",
+       "maxLength": 512
+     }
+   ]
    ```
-   git clone https://github.com/<your organization>/<your-repo-name>.git
+
+### 插入向量数据
+
+1. 选择 `Vector` 资源和 `Insert` 操作
+2. 输入集合名称
+3. 提供数据（JSON 格式）：
+   ```json
+   [
+     {
+       "id": 1,
+       "vector": [0.1, 0.2, 0.3, ...],
+       "text": "这是一个示例文本"
+     },
+     {
+       "id": 2, 
+       "vector": [0.4, 0.5, 0.6, ...],
+       "text": "另一个示例文本"
+     }
+   ]
    ```
-3. Run `npm i` to install dependencies.
-4. Open the project in your editor.
-5. Browse the examples in `/nodes` and `/credentials`. Modify the examples, or replace them with your own nodes.
-6. Update the `package.json` to match your details.
-7. Run `npm run lint` to check for errors or `npm run lintfix` to automatically fix errors when possible.
-8. Test your node locally. Refer to [Run your node locally](https://docs.n8n.io/integrations/creating-nodes/test/run-node-locally/) for guidance.
-9. Replace this README with documentation for your node. Use the [README_TEMPLATE](README_TEMPLATE.md) to get started.
-10. Update the LICENSE file to use your details.
-11. [Publish](https://docs.npmjs.com/packages-and-modules/contributing-packages-to-the-registry) your package to npm.
 
-## More information
+### 向量搜索
 
-Refer to our [documentation on creating nodes](https://docs.n8n.io/integrations/creating-nodes/) for detailed information on building your own nodes.
+1. 选择 `Vector` 资源和 `Search` 操作
+2. 输入集合名称
+3. 提供搜索向量：
+   ```json
+   [0.1, 0.2, 0.3, ...]
+   ```
+4. 设置搜索参数：
+   - **Limit**: 返回结果数量限制
+   - **Filter**: 过滤条件（可选）
+   - **Output Fields**: 要返回的字段列表
 
-## License
+### 查询向量
 
-[MIT](https://github.com/n8n-io/n8n-nodes-starter/blob/master/LICENSE.md)
+1. 选择 `Vector` 资源和 `Query` 操作
+2. 输入集合名称
+3. 设置查询参数：
+   - **Filter**: 过滤条件（必需）
+   - **Limit**: 返回结果数量限制
+   - **Output Fields**: 要返回的字段列表
+
+## API 文档
+
+更多关于 Zilliz Cloud RESTful API 的信息，请参考：
+- [Zilliz Cloud 快速开始](https://docs.zilliz.com.cn/docs/quick-start)
+- [Zilliz Cloud RESTful API 参考](https://docs.zilliz.com.cn/reference/restful)
+
+## 支持的数据类型
+
+- **INT64**: 64位整数
+- **VARCHAR**: 可变长度字符串
+- **FLOAT_VECTOR**: 浮点向量
+- **BINARY_VECTOR**: 二进制向量
+- **FLOAT**: 浮点数
+- **DOUBLE**: 双精度浮点数
+- **BOOL**: 布尔值
+
+## 常见用例
+
+1. **AI Agent 知识库**: 存储和检索文档向量
+2. **推荐系统**: 基于用户偏好向量进行推荐
+3. **图像搜索**: 存储和搜索图像特征向量
+4. **语义搜索**: 基于文本语义进行搜索
+
+## 注意事项
+
+- 在插入数据后立即进行搜索可能返回空结果，建议等待一段时间
+- 向量字段必须创建索引才能进行搜索
+- 确保向量维度与集合定义一致
+- 过滤表达式的语法请参考 Zilliz Cloud 文档
+
+## 许可证
+
+MIT
+
+## 贡献
+
+欢迎提交 issue 和 pull request！
