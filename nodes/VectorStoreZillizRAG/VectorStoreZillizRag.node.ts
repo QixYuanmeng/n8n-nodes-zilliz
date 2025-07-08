@@ -89,6 +89,12 @@ export class VectorStoreZillizRag implements INodeType {
 		},
 		inputs: [NodeConnectionType.Main],
 		outputs: [NodeConnectionType.Main],
+		credentials: [
+			{
+				name: 'zillizApi',
+				required: false,
+			},
+		],
 		properties: [
 			{
 				displayName: 'Operation',
