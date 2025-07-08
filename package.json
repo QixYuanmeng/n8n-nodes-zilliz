@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-zilliz",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "n8n community node for Zilliz vector database with full RAG support",
 	"keywords": [
 		"n8n-community-node-package",
@@ -47,7 +47,7 @@
 			"dist/nodes/VectorStoreZilliz/VectorStoreZilliz.node.js",
 			"dist/nodes/VectorStoreZillizInsert/VectorStoreZillizInsert.node.js",
 			"dist/nodes/VectorStoreZillizLoad/VectorStoreZillizLoad.node.js",
-			"dist/nodes/VectorStoreZillizRAG/VectorStoreZillizRag.node.js"
+			"dist/nodes/VectorStoreZillizRag/VectorStoreZillizRag.node.js"
 		]
 	},
 	"devDependencies": {
