@@ -9,7 +9,7 @@ import { NodeOperationError } from 'n8n-workflow';
 import { ZillizClient, type ZillizVectorData } from '../shared/ZillizClient';
 import { zillizCollectionRLC, zillizDatabaseField } from '../shared/descriptions';
 
-export class VectorStoreZillizRAG implements INodeType {
+export class VectorStoreZillizRag implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Zilliz RAG Knowledge Base',
 		name: 'vectorStoreZillizRag',
