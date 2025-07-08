@@ -50,50 +50,23 @@ npm install n8n-nodes-zilliz
 
 ### 1. Zilliz Vector Store Insert
 
-**用途**: 向Zilliz集合中插入向量数据
+**用途**: 专门用于向向量数据库插入数据
 
-**配置参数**:
-- **Database Name**: 数据库名称 (默认: default)
-- **Collection Name**: 集合名称
-- **Options**:
-  - Clear Collection: 插入前是否清空集合
-  - Text Field: 文本字段名称 (默认: text)
-  - Vector Field: 向量字段名称 (默认: vector)
-  - Metadata Fields: 额外的元数据字段
-
-**输入数据格式**:
-```json
-{
-  "vector": [0.1, 0.2, 0.3, 0.4, 0.5],
-  "text": "示例文本内容",
-  "category": "技术",
-  "timestamp": "2024-01-01"
-}
-```
+**特点**:
+- 支持批量插入
+- 自动处理元数据字段
+- 可选择清空集合
+- 支持自定义批次大小
 
 ### 2. Zilliz Vector Store Load
 
-**用途**: 从Zilliz集合中搜索和加载向量数据
+**用途**: 从向量数据库搜索和加载数据
 
-**配置参数**:
-- **Database Name**: 数据库名称
-- **Collection Name**: 集合名称  
-- **Query Vector**: 查询向量 (JSON数组或字段引用)
-- **Top K**: 返回结果数量
-- **Options**:
-  - Filter Expression: 过滤表达式
-  - Output Fields: 输出字段
-  - Score Threshold: 相似度阈值
-
-**查询向量格式**:
-```json
-[0.1, 0.2, 0.3, 0.4, 0.5]
-```
-
-或使用字段引用:
-```
-{{$json.embedding}}
-```
+**特点**:
+- 向量相似度搜索
+- 支持结果过滤
+- 可配置返回字段
+- 高级搜索参数
 
 ### 3. Zilliz Vector Store
 
@@ -114,67 +87,22 @@ npm install n8n-nodes-zilliz
 **主要操作**:
 
 #### createKnowledgeBase - 创建知识库
-创建优化的向量集合用于存储文档知识库
-```json
-{
-  "operation": "createKnowledgeBase",
-  "embeddingSettings": {
-    "dimension": 1536,
-    "metricType": "COSINE"
-  }
-}
-```
+为RAG应用创建优化的向量集合
 
 #### processAndStore - 文档处理和存储
-对文档进行清洗、分块、向量化并存储到知识库
-```json
-{
-  "operation": "processAndStore",
-  "contentField": "content",
-  "titleField": "title",
-  "textProcessing": {
-    "cleanText": true,
-    "removeHtml": true,
-    "chunkSize": 1000,
-    "chunkOverlap": 200,
-    "minChunkSize": 50
-  }
-}
-```
+完整的文档处理流程：清洗→分块→存储
 
 #### semanticSearch - 语义搜索
 基于向量相似度进行语义搜索
-```json
-{
-  "operation": "semanticSearch",
-  "queryText": "用户问题",
-  "queryVector": "[0.1, 0.2, ...]",
-  "searchOptions": {
-    "maxResults": 5,
-    "similarityThreshold": 0.7,
-    "includeMetadata": true
-  }
-}
-```
 
 #### queryWithContext - AI Agent上下文查询
 为AI Agent优化的上下文格式化输出
-```json
-{
-  "operation": "queryWithContext",
-  "queryText": "AI Agent查询",
-  "searchOptions": {
-    "maxResults": 3,
-    "similarityThreshold": 0.8
-  }
-}
-```
 
 **RAG工作流示例**:
 1. **文档** → **Embedding节点** → **RAG processAndStore**
 2. **用户查询** → **Embedding节点** → **RAG queryWithContext** → **AI Agent**
 
-详细使用指南请参考: [RAG_GUIDE.md](./RAG_GUIDE.md)
+详细使用指南请参考: [USAGE.md](./USAGE.md)
 
 ## 使用示例
 
@@ -219,25 +147,35 @@ npm install n8n-nodes-zilliz
 
 ## 故障排除
 
-### 常见错误
+### 常见问题
 
-1. **连接错误**: 检查API密钥和端点URL是否正确
-2. **集合不存在**: 确保集合已创建或使用Create Collection操作
-3. **向量维度不匹配**: 确保输入向量维度与集合定义一致
-4. **权限错误**: 确保API密钥有足够权限
+1. **连接失败**: 检查API密钥和集群端点
+2. **插入失败**: 验证数据格式和字段类型
+3. **搜索无结果**: 检查向量维度和相似度阈值
+4. **权限错误**: 确认API密钥有相应操作权限
 
 ### 调试技巧
 
-1. 启用节点的"Continue on Fail"选项查看详细错误
-2. 使用List Collections操作验证连接
-3. 检查向量数据格式是否正确
+1. 启用"Continue on Fail"查看详细错误
+2. 使用"List Collections"测试基本连接
+3. 检查向量维度是否匹配集合配置
 
 ## 版本历史
 
+### v0.3.2 (当前版本)
+- ✅ 修复所有TypeScript类型错误
+- ✅ 完善package.json配置
+- ✅ 优化构建流程
+- ✅ 完整的n8n节点兼容性
+
+### v0.3.1
+- ✅ 添加RAG专用节点
+- ✅ 支持文档处理和分块
+- ✅ 改进错误处理
+
 ### v0.2.5
-- 初始版本发布
-- 支持基本的CRUD操作
-- 集成Zilliz Cloud RESTful API
+- ✅ 初始版本发布
+- ✅ 基础向量操作支持
 
 ## 贡献
 

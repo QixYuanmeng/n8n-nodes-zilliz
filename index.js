@@ -1,11 +1,2 @@
-module.exports = {
-	credentials: [
-		require('./dist/credentials/ZillizApi.credentials.js'),
-	],
-	nodes: [
-		require('./dist/nodes/VectorStoreZilliz/VectorStoreZilliz.node.js'),
-		require('./dist/nodes/VectorStoreZillizInsert/VectorStoreZillizInsert.node.js'),
-		require('./dist/nodes/VectorStoreZillizLoad/VectorStoreZillizLoad.node.js'),
-		require('./dist/nodes/VectorStoreZillizRag/VectorStoreZillizRag.node.js'),
-	],
-};
+// This file is required for n8n community node package structure
+// The actual node implementations are in the dist folder after compilation

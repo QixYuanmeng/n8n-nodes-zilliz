@@ -1,14 +1,14 @@
 import type {
-	IAuthenticateGeneric,
 	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
+	IAuthenticateGeneric,
 } from 'n8n-workflow';
 
 export class ZillizApi implements ICredentialType {
 	name = 'zillizApi';
 
-	displayName = 'Zilliz Cloud API';
+	displayName = 'Zilliz API';
 
 	documentationUrl = 'https://docs.zilliz.com.cn/docs/quick-start';
 
@@ -20,16 +20,16 @@ export class ZillizApi implements ICredentialType {
 			typeOptions: { password: true },
 			required: true,
 			default: '',
-			description: 'Your Zilliz Cloud API key',
+			description: 'Your Zilliz API Key',
 		},
 		{
 			displayName: 'Cluster Endpoint',
 			name: 'clusterEndpoint',
-			type: 'string',
 			required: true,
+			type: 'string',
 			default: '',
-			placeholder: 'https://your-cluster-id.api.region.zillizcloud.com',
-			description: 'The endpoint URL of your Zilliz cluster',
+			placeholder: 'https://in03-xxxxx.api.gcp-us-west1.zillizcloud.com',
+			description: 'Your Zilliz cluster endpoint URL',
 		},
 	];
 
@@ -46,8 +46,8 @@ export class ZillizApi implements ICredentialType {
 
 	test: ICredentialTestRequest = {
 		request: {
-			baseURL: '={{$credentials.clusterEndpoint}}',
-			url: '/v2/vectordb/collections/list',
+			baseURL: '={{ $credentials.clusterEndpoint }}',
+			url: '/v1/vector/collections',
 			method: 'GET',
 		},
 	};
