@@ -4,22 +4,25 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeOperationError, NodeConnectionType } from 'n8n-workflow';
-import axios from 'axios';
+import { NodeOperationError } from 'n8n-workflow';
+
+import { ZillizClient } from '../shared/ZillizClient';
+import { zillizCollectionRLC, zillizDatabaseField } from '../shared/descriptions';
 
 export class VectorStoreZilliz implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Zilliz Vector Store',
 		name: 'vectorStoreZilliz',
 		icon: 'file:zilliz.svg',
-		group: ['transform'],
+		group: ['input'],
 		version: 1,
-		description: 'Work with your data in Zilliz Vector Store',
+		subtitle: '={{$parameter["operation"]}}',
+		description: 'Work with Zilliz vector database for AI applications',
 		defaults: {
 			name: 'Zilliz Vector Store',
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		inputs: ['main'] as any,
+		outputs: ['main'] as any,
 		credentials: [
 			{
 				name: 'zillizApi',
@@ -34,178 +37,70 @@ export class VectorStoreZilliz implements INodeType {
 				noDataExpression: true,
 				options: [
 					{
-						name: 'Create Collection',
-						value: 'createCollection',
-						description: 'Create a new collection',
-						action: 'Create a new collection',
-					},
-					{
-						name: 'Delete Collection',
-						value: 'deleteCollection',
-						description: 'Delete a collection',
-						action: 'Delete a collection',
-					},
-					{
-						name: 'Insert Vectors',
-						value: 'insert',
-						description: 'Insert vectors into collection',
-						action: 'Insert vectors into collection',
-					},
-					{
-						name: 'List Collections',
-						value: 'listCollections',
-						description: 'List all collections',
-						action: 'List all collections',
-					},
-					{
 						name: 'Search Vectors',
 						value: 'search',
 						description: 'Search for similar vectors',
 						action: 'Search for similar vectors',
 					},
+					{
+						name: 'List Collections',
+						value: 'listCollections',
+						description: 'List all collections in the database',
+						action: 'List all collections',
+					},
 				],
 				default: 'search',
 			},
+			zillizDatabaseField,
 			{
-				displayName: 'Collection Name',
-				name: 'collectionName',
-				type: 'string',
-				default: '',
-				placeholder: 'my_collection',
-				description: 'Name of the collection to work with',
+				...zillizCollectionRLC,
 				displayOptions: {
 					show: {
-						operation: ['insert', 'search', 'deleteCollection'],
+						operation: ['search'],
 					},
 				},
 			},
-			{
-				displayName: 'Collection Name',
-				name: 'newCollectionName',
-				type: 'string',
-				default: '',
-				placeholder: 'my_new_collection',
-				description: 'Name of the collection to create',
-				displayOptions: {
-					show: {
-						operation: ['createCollection'],
-					},
-				},
-			},
-			{
-				displayName: 'Vector Field Name',
-				name: 'vectorFieldName',
-				type: 'string',
-				default: 'vector',
-				description: 'Name of the vector field in the collection',
-				displayOptions: {
-					show: {
-						operation: ['insert', 'search', 'createCollection'],
-					},
-				},
-			},
-			{
-				displayName: 'Vector Dimension',
-				name: 'dimension',
-				type: 'number',
-				default: 1536,
-				description: 'Dimension of the vectors',
-				displayOptions: {
-					show: {
-						operation: ['createCollection'],
-					},
-				},
-			},
-			{
-				displayName: 'Metric Type',
-				name: 'metricType',
-				type: 'options',
-				options: [
-					{
-						name: 'Cosine',
-						value: 'COSINE',
-					},
-					{
-						name: 'L2 (Euclidean)',
-						value: 'L2',
-					},
-					{
-						name: 'Inner Product',
-						value: 'IP',
-					},
-				],
-				default: 'COSINE',
-				description: 'Distance metric for similarity search',
-				displayOptions: {
-					show: {
-						operation: ['createCollection'],
-					},
-				},
-			},
-			{
-				displayName: 'Data',
-				name: 'data',
-				type: 'json',
-				default: '[]',
-				description: 'Array of objects to insert. Each object should have vector field and optional metadata.',
-				placeholder: '[{"vector": [0.1, 0.2, ...], "ID": 1, "text": "sample text"}]',
-				displayOptions: {
-					show: {
-						operation: ['insert'],
-					},
-				},
-			},
+
+			// Search operation fields
 			{
 				displayName: 'Query Vector',
 				name: 'queryVector',
 				type: 'json',
-				default: '[]',
-				description: 'Vector to search for similar vectors',
-				placeholder: '[0.1, 0.2, 0.3, ...]',
 				displayOptions: {
 					show: {
 						operation: ['search'],
 					},
 				},
+				default: '',
+				description: 'Vector to search for (array of numbers)',
+				placeholder: '[0.1, 0.2, 0.3, 0.4, 0.5]',
 			},
 			{
-				displayName: 'Search Options',
-				name: 'searchOptions',
-				type: 'collection',
-				placeholder: 'Add Option',
-				default: {},
+				displayName: 'Limit',
+				name: 'limit',
+				type: 'number',
+				typeOptions: {
+					minValue: 1,
+				},
 				displayOptions: {
 					show: {
 						operation: ['search'],
 					},
 				},
-				options: [
-					{
-						displayName: 'Limit',
-						name: 'limit',
-						type: 'number',
-						typeOptions: {
-							minValue: 1,
-						},
-						default: 50,
-						description: 'Max number of results to return',
+				default: 50,
+				description: 'Max number of results to return',
+			},
+			{
+				displayName: 'Filter Expression',
+				name: 'filter',
+				type: 'string',
+				displayOptions: {
+					show: {
+						operation: ['search'],
 					},
-					{
-						displayName: 'Output Fields',
-						name: 'outputFields',
-						type: 'string',
-						default: '*',
-						description: 'Comma-separated list of fields to return in results',
-					},
-					{
-						displayName: 'Filter Expression',
-						name: 'filter',
-						type: 'string',
-						default: '',
-						description: 'Filter expression for metadata filtering',
-						placeholder: 'ID > 100',
-					},
-				],
+				},
+				default: '',
+				description: 'Filter expression to apply (e.g., "ID > 100")',
 			},
 		],
 	};
@@ -213,151 +108,59 @@ export class VectorStoreZilliz implements INodeType {
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
+		const operation = this.getNodeParameter('operation', 0) as string;
+
+		const credentials = await this.getCredentials('zillizApi');
+		const zillizClient = new ZillizClient({
+			apiKey: credentials.apiKey as string,
+			clusterEndpoint: credentials.clusterEndpoint as string,
+		});
 
 		for (let i = 0; i < items.length; i++) {
 			try {
-				const credentials = await this.getCredentials('zillizApi');
-				const operation = this.getNodeParameter('operation', i) as string;
+				const database = this.getNodeParameter('zillizDatabase', i, 'default') as string;
 
-				const baseURL = credentials.clusterEndpoint as string;
-				const apiKey = credentials.apiKey as string;
-
-				const headers = {
-					'Authorization': `Bearer ${apiKey}`,
-					'Content-Type': 'application/json',
-				};
-
-				let result;
+				let result: any;
 
 				switch (operation) {
-					case 'listCollections':
-						try {
-							const response = await axios.post(`${baseURL}/v2/vectordb/collections/list`, {}, { headers });
-							result = response.data;
-						} catch (error: any) {
-							throw new NodeOperationError(this.getNode(), `Failed to list collections: ${error.message}`);
-						}
-						break;
-
-					case 'createCollection':
-						const collectionName = this.getNodeParameter('newCollectionName', i) as string;
-						const vectorFieldName = this.getNodeParameter('vectorFieldName', i) as string;
-						const dimension = this.getNodeParameter('dimension', i) as number;
-						const metricType = this.getNodeParameter('metricType', i) as string;
-
-						const requestBody = {
-							collectionName,
-							schema: {
-								fields: [
-									{
-										fieldName: 'id',
-										dataType: 'Int64',
-										isPrimary: true,
-										elementTypeParams: {},
-									},
-									{
-										fieldName: vectorFieldName,
-										dataType: 'FloatVector',
-										elementTypeParams: {
-											dim: dimension.toString(),
-										},
-									},
-								],
-							},
-							indexParams: [
-								{
-									fieldName: vectorFieldName,
-									indexName: `${vectorFieldName}_index`,
-									params: {
-										index_type: 'AUTOINDEX',
-										metric_type: metricType,
-									},
-								},
-							],
-						};
-
-						try {
-							const response = await axios.post(`${baseURL}/v2/vectordb/collections/create`, requestBody, { headers });
-							result = response.data;
-						} catch (error: any) {
-							throw new NodeOperationError(this.getNode(), `Failed to create collection: ${error.message}`, {
-								itemIndex: i,
-							});
-						}
-						break;
-
-					case 'deleteCollection':
-						const deleteCollectionName = this.getNodeParameter('collectionName', i) as string;
-
-						try {
-							const response = await axios.post(`${baseURL}/v2/vectordb/collections/drop`, 
-								{ collectionName: deleteCollectionName }, 
-								{ headers }
-							);
-							result = response.data;
-						} catch (error: any) {
-							throw new NodeOperationError(this.getNode(), `Failed to delete collection: ${error.message}`, {
-								itemIndex: i,
-							});
-						}
-						break;
-
-					case 'insert':
-						const insertCollectionName = this.getNodeParameter('collectionName', i) as string;
-						const data = this.getNodeParameter('data', i) as any[];
-
-						if (!Array.isArray(data) || data.length === 0) {
-							throw new NodeOperationError(this.getNode(), 'Data must be a non-empty array', {
-								itemIndex: i,
-							});
-						}
-
-						const insertRequestBody = {
-							collectionName: insertCollectionName,
-							data,
-						};
-
-						try {
-							const response = await axios.post(`${baseURL}/v2/vectordb/entities/insert`, insertRequestBody, { headers });
-							result = response.data;
-						} catch (error: any) {
-							throw new NodeOperationError(this.getNode(), `Failed to insert vectors: ${error.message}`, {
-								itemIndex: i,
-							});
-						}
-						break;
-
 					case 'search':
-						const searchCollectionName = this.getNodeParameter('collectionName', i) as string;
-						const queryVector = this.getNodeParameter('queryVector', i) as number[];
-						const searchVectorFieldName = this.getNodeParameter('vectorFieldName', i) as string;
-						const searchOptions = this.getNodeParameter('searchOptions', i) as any;
+						const collectionName = this.getNodeParameter('zillizCollection', i, '', {
+							extractValue: true,
+						}) as string;
+						const queryVectorParam = this.getNodeParameter('queryVector', i) as string;
+						const limit = this.getNodeParameter('limit', i, 10) as number;
+						const filter = this.getNodeParameter('filter', i, '') as string;
 
-						if (!Array.isArray(queryVector) || queryVector.length === 0) {
-							throw new NodeOperationError(this.getNode(), 'Query vector must be a non-empty array', {
-								itemIndex: i,
-							});
-						}
-
-						const searchRequestBody = {
-							collectionName: searchCollectionName,
-							data: [queryVector],
-							annsField: searchVectorFieldName,
-							limit: searchOptions.limit || 50,
-							outputFields: searchOptions.outputFields ? searchOptions.outputFields.split(',').map((f: string) => f.trim()) : ['*'],
-							...(searchOptions.filter && { filter: searchOptions.filter }),
-						};
-
+						let queryVector: number[];
 						try {
-							const response = await axios.post(`${baseURL}/v2/vectordb/entities/search`, searchRequestBody, { headers });
-							result = response.data;
-						} catch (error: any) {
-							throw new NodeOperationError(this.getNode(), `Failed to search vectors: ${error.message}`, {
+							queryVector = JSON.parse(queryVectorParam);
+						} catch (error) {
+							throw new NodeOperationError(this.getNode(), 'Invalid JSON in Query Vector parameter', {
 								itemIndex: i,
 							});
 						}
-						break;
 
+						if (!Array.isArray(queryVector)) {
+							throw new NodeOperationError(this.getNode(), 'Query Vector must be an array', {
+								itemIndex: i,
+							});
+						}
+
+						const searchResults = await zillizClient.searchVectors(
+							collectionName,
+							[queryVector],
+							limit,
+							filter || undefined,
+							undefined,
+							database,
+						);
+
+						result = { results: searchResults[0] || [] };
+						break;
+					case 'listCollections':
+						const collections = await zillizClient.listCollections(database);
+						result = { collections };
+						break;
 					default:
 						throw new NodeOperationError(this.getNode(), `Unknown operation: ${operation}`, {
 							itemIndex: i,
@@ -371,7 +174,7 @@ export class VectorStoreZilliz implements INodeType {
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({
-						json: { error: (error as Error).message },
+						json: { error: error.message },
 						pairedItem: { item: i },
 					});
 					continue;

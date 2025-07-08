@@ -8,28 +8,28 @@ import type {
 export class ZillizApi implements ICredentialType {
 	name = 'zillizApi';
 
-	displayName = 'Zilliz API';
+	displayName = 'Zilliz Cloud API';
 
 	documentationUrl = 'https://docs.zilliz.com.cn/docs/quick-start';
 
 	properties: INodeProperties[] = [
 		{
-			displayName: 'Cluster Endpoint',
-			name: 'clusterEndpoint',
-			type: 'string',
-			placeholder: 'https://in03-xxxxxxxxxxxxxxxx.api.gcp-us-west1.zillizcloud.com',
-			default: '',
-			description: 'The cluster endpoint URL from your Zilliz Cloud console',
-			required: true,
-		},
-		{
 			displayName: 'API Key',
 			name: 'apiKey',
 			type: 'string',
 			typeOptions: { password: true },
-			default: '',
-			description: 'API Key from your Zilliz Cloud console',
 			required: true,
+			default: '',
+			description: 'Your Zilliz Cloud API key',
+		},
+		{
+			displayName: 'Cluster Endpoint',
+			name: 'clusterEndpoint',
+			type: 'string',
+			required: true,
+			default: '',
+			placeholder: 'https://your-cluster-id.api.region.zillizcloud.com',
+			description: 'The endpoint URL of your Zilliz cluster',
 		},
 	];
 
@@ -37,7 +37,9 @@ export class ZillizApi implements ICredentialType {
 		type: 'generic',
 		properties: {
 			headers: {
-				Authorization: '=Bearer {{$credentials.apiKey}}',
+				'Authorization': '=Bearer {{$credentials.apiKey}}',
+				'Content-Type': 'application/json',
+				'Accept': 'application/json',
 			},
 		},
 	};
@@ -46,11 +48,7 @@ export class ZillizApi implements ICredentialType {
 		request: {
 			baseURL: '={{$credentials.clusterEndpoint}}',
 			url: '/v2/vectordb/collections/list',
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			body: '{}',
+			method: 'GET',
 		},
 	};
 }

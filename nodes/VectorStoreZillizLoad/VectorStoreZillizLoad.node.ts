@@ -4,22 +4,24 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeOperationError, NodeConnectionType } from 'n8n-workflow';
-import axios from 'axios';
+import { NodeOperationError } from 'n8n-workflow';
+
+import { ZillizClient } from '../shared/ZillizClient';
+import { zillizCollectionRLC, zillizDatabaseField } from '../shared/descriptions';
 
 export class VectorStoreZillizLoad implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Zilliz Vector Store Load',
 		name: 'vectorStoreZillizLoad',
 		icon: 'file:zilliz.svg',
-		group: ['transform'],
+		group: ['input'],
 		version: 1,
-		description: 'Search and load vectors from Zilliz Vector Store',
+		description: 'Search and load vectors from Zilliz vector database',
 		defaults: {
-			name: 'Zilliz Vector Store Load',
+			name: 'Zilliz Load',
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		inputs: ['main'] as any,
+		outputs: ['main'] as any,
 		credentials: [
 			{
 				name: 'zillizApi',
@@ -27,97 +29,22 @@ export class VectorStoreZillizLoad implements INodeType {
 			},
 		],
 		properties: [
-			{
-				displayName: 'Collection Name',
-				name: 'collectionName',
-				type: 'string',
-				default: '',
-				required: true,
-				placeholder: 'my_collection',
-				description: 'Name of the collection to search in',
-			},
-			{
-				displayName: 'Vector Field Name',
-				name: 'vectorFieldName',
-				type: 'string',
-				default: 'vector',
-				description: 'Name of the vector field in the collection',
-			},
-			{
-				displayName: 'Query Mode',
-				name: 'queryMode',
-				type: 'options',
-				options: [
-					{
-						name: 'Vector Search',
-						value: 'vectorSearch',
-						description: 'Search by similarity to a vector',
-					},
-					{
-						name: 'Scalar Query',
-						value: 'scalarQuery',
-						description: 'Query by scalar field conditions',
-					},
-				],
-				default: 'vectorSearch',
-				description: 'Type of query to perform',
-			},
+			zillizDatabaseField,
+			zillizCollectionRLC,
 			{
 				displayName: 'Query Vector',
 				name: 'queryVector',
 				type: 'json',
-				default: '[]',
-				description: 'Vector to search for similar vectors',
-				placeholder: '[0.1, 0.2, 0.3, ...]',
-				displayOptions: {
-					show: {
-						queryMode: ['vectorSearch'],
-					},
-				},
-			},
-			{
-				displayName: 'Query Vector Source',
-				name: 'vectorSource',
-				type: 'options',
-				options: [
-					{
-						name: 'Specify Vector',
-						value: 'specify',
-						description: 'Manually specify the query vector',
-					},
-					{
-						name: 'From Input Data',
-						value: 'input',
-						description: 'Extract vector from input data',
-					},
-				],
-				default: 'specify',
-				displayOptions: {
-					show: {
-						queryMode: ['vectorSearch'],
-					},
-				},
-			},
-			{
-				displayName: 'Vector Field in Input',
-				name: 'inputVectorField',
-				type: 'string',
-				default: 'vector',
-				description: 'Field name in input data that contains the query vector',
-				displayOptions: {
-					show: {
-						queryMode: ['vectorSearch'],
-						vectorSource: ['input'],
-					},
-				},
-			},
-			{
-				displayName: 'Filter Expression',
-				name: 'filter',
-				type: 'string',
 				default: '',
-				description: 'Filter expression for metadata filtering',
-				placeholder: 'ID > 100 AND category == "text"',
+				description: 'Vector to search for (array of numbers or field name containing the vector)',
+				placeholder: '[0.1, 0.2, 0.3] or use {{$json.vector}} for field reference',
+			},
+			{
+				displayName: 'Top K',
+				name: 'topK',
+				type: 'number',
+				default: 10,
+				description: 'Number of most similar vectors to return',
 			},
 			{
 				displayName: 'Options',
@@ -127,43 +54,25 @@ export class VectorStoreZillizLoad implements INodeType {
 				default: {},
 				options: [
 					{
-						displayName: 'Limit',
-						name: 'limit',
-						type: 'number',
-						typeOptions: {
-							minValue: 1,
-						},
-						default: 50,
-						description: 'Max number of results to return',
+						displayName: 'Filter Expression',
+						name: 'filter',
+						type: 'string',
+						default: '',
+						description: 'Filter expression to apply (e.g., "ID > 100 and category == \'tech\'")',
 					},
 					{
 						displayName: 'Output Fields',
 						name: 'outputFields',
 						type: 'string',
 						default: '*',
-						description: 'Comma-separated list of fields to return in results (use * for all fields)',
+						description: 'Comma-separated list of fields to return (default: all fields)',
 					},
 					{
-						displayName: 'Offset',
-						name: 'offset',
+						displayName: 'Score Threshold',
+						name: 'scoreThreshold',
 						type: 'number',
 						default: 0,
-						description: 'Number of results to skip (for pagination)',
-						typeOptions: {
-							minValue: 0,
-						},
-					},
-					{
-						displayName: 'Include Distance',
-						name: 'includeDistance',
-						type: 'boolean',
-						default: true,
-						description: 'Whether to include similarity distance in results',
-						displayOptions: {
-							show: {
-								'/queryMode': ['vectorSearch'],
-							},
-						},
+						description: 'Minimum similarity score threshold (0-1)',
 					},
 				],
 			},
@@ -174,122 +83,116 @@ export class VectorStoreZillizLoad implements INodeType {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
 
+		const credentials = await this.getCredentials('zillizApi');
+		const zillizClient = new ZillizClient({
+			apiKey: credentials.apiKey as string,
+			clusterEndpoint: credentials.clusterEndpoint as string,
+		});
+
 		for (let i = 0; i < items.length; i++) {
 			try {
-				const credentials = await this.getCredentials('zillizApi');
-				const collectionName = this.getNodeParameter('collectionName', i) as string;
-				const vectorFieldName = this.getNodeParameter('vectorFieldName', i) as string;
-				const queryMode = this.getNodeParameter('queryMode', i) as string;
-				const filter = this.getNodeParameter('filter', i) as string;
-				const options = this.getNodeParameter('options', i) as any;
-
-				const baseURL = credentials.clusterEndpoint as string;
-				const apiKey = credentials.apiKey as string;
-
-				const headers = {
-					'Authorization': `Bearer ${apiKey}`,
-					'Content-Type': 'application/json',
+				const database = this.getNodeParameter('zillizDatabase', i, 'default') as string;
+				const collectionName = this.getNodeParameter('zillizCollection', i, '', {
+					extractValue: true,
+				}) as string;
+				const queryVectorParam = this.getNodeParameter('queryVector', i) as string;
+				const topK = this.getNodeParameter('topK', i, 10) as number;
+				const options = this.getNodeParameter('options', i, {}) as {
+					filter?: string;
+					outputFields?: string;
+					scoreThreshold?: number;
 				};
 
-				let result;
-
-				if (queryMode === 'vectorSearch') {
-					const vectorSource = this.getNodeParameter('vectorSource', i) as string;
-					let queryVector: number[];
-
-					if (vectorSource === 'input') {
-						const inputVectorField = this.getNodeParameter('inputVectorField', i) as string;
-						const inputData = items[i].json;
-						
-						if (!inputData[inputVectorField]) {
-							throw new NodeOperationError(this.getNode(), `Vector field '${inputVectorField}' not found in input data`, {
-								itemIndex: i,
-							});
-						}
-						
-						queryVector = inputData[inputVectorField] as number[];
+				// Parse query vector
+				let queryVector: number[];
+				try {
+					// Try to parse as JSON array first
+					if (queryVectorParam.startsWith('[')) {
+						queryVector = JSON.parse(queryVectorParam);
 					} else {
-						queryVector = this.getNodeParameter('queryVector', i) as number[];
-					}
-
-					if (!Array.isArray(queryVector) || queryVector.length === 0) {
-						throw new NodeOperationError(this.getNode(), 'Query vector must be a non-empty array', {
-							itemIndex: i,
-						});
-					}
-
-					const searchRequestBody = {
-						collectionName,
-						data: [queryVector],
-						annsField: vectorFieldName,
-						limit: options.limit || 50,
-						offset: options.offset || 0,
-						outputFields: options.outputFields ? options.outputFields.split(',').map((f: string) => f.trim()) : ['*'],
-						...(filter && { filter }),
-					};
-
-					try {
-						const response = await axios.post(`${baseURL}/v2/vectordb/entities/search`, searchRequestBody, { headers });
-						result = response.data;
-						
-						// Process results to flatten the structure
-						if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-							const searchResults = result.data[0] || [];
-							const processedResults = searchResults.map((item: any) => ({
-								...item.entity,
-								...(options.includeDistance !== false && { distance: item.distance }),
-								id: item.id,
-							}));
-							
-							result.results = processedResults;
-							result.total = processedResults.length;
+						// Otherwise, evaluate as expression (e.g., field reference)
+						const resolved = this.evaluateExpression(queryVectorParam, i);
+						if (Array.isArray(resolved)) {
+							queryVector = resolved as number[];
+						} else {
+							throw new NodeOperationError(
+								this.getNode(),
+								'Query vector must be an array of numbers',
+								{ itemIndex: i },
+							);
 						}
-					} catch (error: any) {
-						throw new NodeOperationError(this.getNode(), `Failed to search vectors: ${error.message}`, {
-							itemIndex: i,
-						});
 					}
-				} else {
-					// Scalar query
-					if (!filter) {
-						throw new NodeOperationError(this.getNode(), 'Filter expression is required for scalar queries', {
-							itemIndex: i,
-						});
-					}
-
-					const queryRequestBody = {
-						collectionName,
-						filter,
-						limit: options.limit || 50,
-						offset: options.offset || 0,
-						outputFields: options.outputFields ? options.outputFields.split(',').map((f: string) => f.trim()) : ['*'],
-					};
-
-					try {
-						const response = await axios.post(`${baseURL}/v2/vectordb/entities/query`, queryRequestBody, { headers });
-						result = response.data;
-						
-						// Process results
-						if (result.data && Array.isArray(result.data)) {
-							result.results = result.data;
-							result.total = result.data.length;
-						}
-					} catch (error: any) {
-						throw new NodeOperationError(this.getNode(), `Failed to query entities: ${error.message}`, {
-							itemIndex: i,
-						});
-					}
+				} catch (error) {
+					throw new NodeOperationError(
+						this.getNode(),
+						`Invalid query vector: ${error.message}`,
+						{ itemIndex: i },
+					);
 				}
 
-				returnData.push({
-					json: result,
-					pairedItem: { item: i },
-				});
+				if (!Array.isArray(queryVector) || queryVector.length === 0) {
+					throw new NodeOperationError(
+						this.getNode(),
+						'Query vector must be a non-empty array of numbers',
+						{ itemIndex: i },
+					);
+				}
 
+				// Prepare output fields
+				const outputFields = options.outputFields === '*' || !options.outputFields
+					? undefined
+					: options.outputFields.split(',').map((f) => f.trim());
+
+				// Perform search
+				const searchResults = await zillizClient.searchVectors(
+					collectionName,
+					[queryVector],
+					topK,
+					options.filter || undefined,
+					outputFields,
+					database,
+				);
+
+				const results = searchResults[0] || [];
+
+				// Apply score threshold if specified
+				const filteredResults = options.scoreThreshold
+					? results.filter((result) => result.distance >= options.scoreThreshold!)
+					: results;
+
+				// Transform results into separate output items
+				for (const result of filteredResults) {
+					returnData.push({
+						json: {
+							id: result.id,
+							score: result.distance,
+							...result.entity,
+							_metadata: {
+								collection: collectionName,
+								database,
+								searchVector: queryVector,
+							},
+						},
+						pairedItem: { item: i },
+					});
+				}
+
+				// If no results found, return empty result
+				if (filteredResults.length === 0) {
+					returnData.push({
+						json: {
+							message: 'No results found',
+							searchVector: queryVector,
+							collection: collectionName,
+							database,
+						},
+						pairedItem: { item: i },
+					});
+				}
 			} catch (error) {
 				if (this.continueOnFail()) {
 					returnData.push({
-						json: { error: (error as Error).message },
+						json: { error: error.message },
 						pairedItem: { item: i },
 					});
 					continue;

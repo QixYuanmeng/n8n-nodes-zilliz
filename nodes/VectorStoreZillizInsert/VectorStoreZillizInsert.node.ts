@@ -4,22 +4,24 @@ import type {
 	INodeType,
 	INodeTypeDescription,
 } from 'n8n-workflow';
-import { NodeOperationError, NodeConnectionType } from 'n8n-workflow';
-import axios from 'axios';
+import { NodeOperationError } from 'n8n-workflow';
+
+import { ZillizClient, type ZillizVectorData } from '../shared/ZillizClient';
+import { zillizCollectionRLC, zillizDatabaseField } from '../shared/descriptions';
 
 export class VectorStoreZillizInsert implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Zilliz Vector Store Insert',
 		name: 'vectorStoreZillizInsert',
 		icon: 'file:zilliz.svg',
-		group: ['transform'],
+		group: ['input'],
 		version: 1,
-		description: 'Insert vectors into Zilliz Vector Store',
+		description: 'Insert vectors into Zilliz vector database',
 		defaults: {
-			name: 'Zilliz Vector Store Insert',
+			name: 'Zilliz Insert',
 		},
-		inputs: [NodeConnectionType.Main],
-		outputs: [NodeConnectionType.Main],
+		inputs: ['main'] as any,
+		outputs: ['main'] as any,
 		credentials: [
 			{
 				name: 'zillizApi',
@@ -27,71 +29,8 @@ export class VectorStoreZillizInsert implements INodeType {
 			},
 		],
 		properties: [
-			{
-				displayName: 'Collection Name',
-				name: 'collectionName',
-				type: 'string',
-				default: '',
-				required: true,
-				placeholder: 'my_collection',
-				description: 'Name of the collection to insert vectors into',
-			},
-			{
-				displayName: 'Input Data Mode',
-				name: 'inputMode',
-				type: 'options',
-				options: [
-					{
-						name: 'From Input Data',
-						value: 'inputData',
-						description: 'Use data from the input',
-					},
-					{
-						name: 'Specify Data',
-						value: 'specifyData',
-						description: 'Manually specify the data to insert',
-					},
-				],
-				default: 'inputData',
-				description: 'How to provide the data for insertion',
-			},
-			{
-				displayName: 'Data',
-				name: 'data',
-				type: 'json',
-				default: '[]',
-				description: 'Array of objects to insert. Each object should have vector field and optional metadata.',
-				placeholder: '[{"vector": [0.1, 0.2, ...], "ID": 1, "text": "sample text"}]',
-				displayOptions: {
-					show: {
-						inputMode: ['specifyData'],
-					},
-				},
-			},
-			{
-				displayName: 'Vector Field',
-				name: 'vectorField',
-				type: 'string',
-				default: 'vector',
-				description: 'Field name that contains the vector data',
-				displayOptions: {
-					show: {
-						inputMode: ['inputData'],
-					},
-				},
-			},
-			{
-				displayName: 'ID Field',
-				name: 'idField',
-				type: 'string',
-				default: 'id',
-				description: 'Field name that contains the ID (optional, will auto-generate if not provided)',
-				displayOptions: {
-					show: {
-						inputMode: ['inputData'],
-					},
-				},
-			},
+			zillizDatabaseField,
+			zillizCollectionRLC,
 			{
 				displayName: 'Options',
 				name: 'options',
@@ -100,15 +39,32 @@ export class VectorStoreZillizInsert implements INodeType {
 				default: {},
 				options: [
 					{
-						displayName: 'Batch Size',
-						name: 'batchSize',
-						type: 'number',
-						default: 100,
-						description: 'Number of vectors to insert in each batch',
-						typeOptions: {
-							minValue: 1,
-							maxValue: 1000,
-						},
+						displayName: 'Clear Collection',
+						name: 'clearCollection',
+						type: 'boolean',
+						default: false,
+						description: 'Whether to clear the collection before inserting new data',
+					},
+					{
+						displayName: 'Text Field',
+						name: 'textField',
+						type: 'string',
+						default: 'text',
+						description: 'Name of the field containing the text content',
+					},
+					{
+						displayName: 'Vector Field',
+						name: 'vectorField',
+						type: 'string',
+						default: 'vector',
+						description: 'Name of the field containing the vector data',
+					},
+					{
+						displayName: 'Metadata Fields',
+						name: 'metadataFields',
+						type: 'string',
+						default: '',
+						description: 'Comma-separated list of additional fields to include as metadata',
 					},
 				],
 			},
@@ -120,106 +76,96 @@ export class VectorStoreZillizInsert implements INodeType {
 		const returnData: INodeExecutionData[] = [];
 
 		const credentials = await this.getCredentials('zillizApi');
-		const collectionName = this.getNodeParameter('collectionName', 0) as string;
-		const inputMode = this.getNodeParameter('inputMode', 0) as string;
-		const options = this.getNodeParameter('options', 0) as any;
+		const zillizClient = new ZillizClient({
+			apiKey: credentials.apiKey as string,
+			clusterEndpoint: credentials.clusterEndpoint as string,
+		});
 
-		const baseURL = credentials.clusterEndpoint as string;
-		const apiKey = credentials.apiKey as string;
-
-		const headers = {
-			'Authorization': `Bearer ${apiKey}`,
-			'Content-Type': 'application/json',
-		};
-
-		let dataToInsert: any[] = [];
-
-		if (inputMode === 'specifyData') {
-			dataToInsert = this.getNodeParameter('data', 0) as any[];
-			if (!Array.isArray(dataToInsert) || dataToInsert.length === 0) {
-				throw new NodeOperationError(this.getNode(), 'Data must be a non-empty array');
-			}
-		} else {
-			// Extract data from input items
-			const vectorField = this.getNodeParameter('vectorField', 0) as string;
-			const idField = this.getNodeParameter('idField', 0) as string;
-
-			for (let i = 0; i < items.length; i++) {
-				const item = items[i].json;
-				
-				if (!item[vectorField]) {
-					throw new NodeOperationError(this.getNode(), `Vector field '${vectorField}' not found in item ${i}`, {
-						itemIndex: i,
-					});
-				}
-
-				const vectorData: any = {
-					...item,
-				};
-
-				// Ensure we have an id field
-				if (idField && item[idField]) {
-					vectorData.id = item[idField];
-				} else if (!vectorData.id) {
-					vectorData.id = i + 1; // Auto-generate ID
-				}
-
-				dataToInsert.push(vectorData);
-			}
-		}
-
-		const batchSize = options.batchSize || 100;
-		const batches = [];
-
-		// Split data into batches
-		for (let i = 0; i < dataToInsert.length; i += batchSize) {
-			batches.push(dataToInsert.slice(i, i + batchSize));
-		}
-
-		let totalInserted = 0;
-		const results = [];
-
-		for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-			const batch = batches[batchIndex];
-
+		for (let i = 0; i < items.length; i++) {
 			try {
-				const requestBody = {
-					collectionName,
-					data: batch,
+				const database = this.getNodeParameter('zillizDatabase', i, 'default') as string;
+				const collectionName = this.getNodeParameter('zillizCollection', i, '', {
+					extractValue: true,
+				}) as string;
+				const options = this.getNodeParameter('options', i, {}) as {
+					clearCollection?: boolean;
+					textField?: string;
+					vectorField?: string;
+					metadataFields?: string;
 				};
 
-				const response = await axios.post(`${baseURL}/v2/vectordb/entities/insert`, requestBody, { headers });
-				const result = response.data;
-				
-				totalInserted += batch.length;
-				results.push({
-					batchIndex: batchIndex + 1,
-					batchSize: batch.length,
-					...result,
-				});
+				const textField = options.textField || 'text';
+				const vectorField = options.vectorField || 'vector';
+				const metadataFields = options.metadataFields
+					? options.metadataFields.split(',').map((f) => f.trim())
+					: [];
 
-			} catch (error: any) {
+				// Clear collection if requested
+				if (options.clearCollection) {
+					try {
+						await zillizClient.deleteVectors(collectionName, 'id >= 0', database);
+					} catch (error) {
+						// Collection might not exist or be empty, continue
+					}
+				}
+
+				// Prepare vector data from input
+				const item = items[i];
+				const vectorData: Partial<ZillizVectorData> = {};
+
+				// Add vector
+				if (item.json[vectorField]) {
+					vectorData.vector = item.json[vectorField] as number[];
+				} else {
+					throw new NodeOperationError(
+						this.getNode(),
+						`Vector field '${vectorField}' not found in input data`,
+						{ itemIndex: i },
+					);
+				}
+
+				// Add text
+				if (item.json[textField]) {
+					vectorData.text = item.json[textField] as string;
+				}
+
+				// Add metadata fields
+				for (const field of metadataFields) {
+					if (item.json[field] !== undefined) {
+						vectorData[field] = item.json[field];
+					}
+				}
+
+				// Add any other fields not explicitly handled
+				for (const [key, value] of Object.entries(item.json)) {
+					if (key !== vectorField && key !== textField && !metadataFields.includes(key)) {
+						vectorData[key] = value;
+					}
+				}
+
+				const result = await zillizClient.insertVectors(collectionName, [vectorData as ZillizVectorData], database);
+
+				returnData.push({
+					json: {
+						success: true,
+						insertCount: result.insertCount,
+						insertIds: result.insertIds,
+						collection: collectionName,
+						database,
+					},
+					pairedItem: { item: i },
+				});
+			} catch (error) {
 				if (this.continueOnFail()) {
-					results.push({
-						batchIndex: batchIndex + 1,
-						batchSize: batch.length,
-						error: error.message,
+					returnData.push({
+						json: { error: error.message },
+						pairedItem: { item: i },
 					});
 					continue;
 				}
-				throw new NodeOperationError(this.getNode(), `Failed to insert batch ${batchIndex + 1}: ${error.message}`);
+				throw error;
 			}
 		}
-
-		returnData.push({
-			json: {
-				success: true,
-				totalItems: dataToInsert.length,
-				totalBatches: batches.length,
-				totalInserted,
-				results,
-			},
-		});
 
 		return [returnData];
 	}

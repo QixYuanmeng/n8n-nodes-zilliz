@@ -3,72 +3,163 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "start",
+      "id": "8b4e5a66-bb8a-4f8a-9c40-2e8c8d9f1a2b",
       "name": "Start",
       "type": "n8n-nodes-base.start",
       "typeVersion": 1,
-      "position": [240, 280]
+      "position": [240, 300]
     },
     {
       "parameters": {
-        "operation": "createCollection",
-        "newCollectionName": "test_collection",
-        "vectorFieldName": "embedding",
-        "dimension": 1536,
-        "metricType": "COSINE"
+        "operation": "listCollections",
+        "zillizDatabase": "default"
       },
-      "id": "create-collection",
-      "name": "Create Collection",
-      "type": "vectorStoreZilliz",
+      "id": "1a2b3c4d-5e6f-7890-abcd-ef1234567890",
+      "name": "List Collections",
+      "type": "n8n-nodes-zilliz.vectorStoreZilliz",
       "typeVersion": 1,
-      "position": [440, 280],
+      "position": [460, 300],
       "credentials": {
         "zillizApi": {
-          "id": "your-zilliz-credential-id",
-          "name": "Zilliz API"
+          "id": "zilliz-credentials-id",
+          "name": "Zilliz Cloud API"
         }
       }
     },
     {
       "parameters": {
-        "collectionName": "test_collection",
-        "inputMode": "specifyData",
-        "data": "[{\"embedding\": [0.1, 0.2, 0.3], \"id\": 1, \"text\": \"Sample document\", \"category\": \"test\"}]"
-      },
-      "id": "insert-vectors",
-      "name": "Insert Test Data",
-      "type": "vectorStoreZillizInsert", 
-      "typeVersion": 1,
-      "position": [640, 280],
-      "credentials": {
-        "zillizApi": {
-          "id": "your-zilliz-credential-id",
-          "name": "Zilliz API"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "collectionName": "test_collection",
-        "vectorFieldName": "embedding",
-        "queryMode": "vectorSearch",
-        "vectorSource": "specify",
-        "queryVector": "[0.1, 0.2, 0.3]",
+        "zillizDatabase": "default",
+        "zillizCollection": {
+          "mode": "string",
+          "value": "test_collection"
+        },
         "options": {
-          "limit": 5,
-          "outputFields": "*",
-          "includeDistance": true
+          "textField": "text",
+          "vectorField": "embedding",
+          "metadataFields": "category,source"
         }
       },
-      "id": "search-vectors",
-      "name": "Search Similar Vectors",
-      "type": "vectorStoreZillizLoad",
+      "id": "2b3c4d5e-6f78-90ab-cdef-123456789012",
+      "name": "Insert Vector",
+      "type": "n8n-nodes-zilliz.vectorStoreZillizInsert",
       "typeVersion": 1,
-      "position": [840, 280],
+      "position": [680, 200],
       "credentials": {
         "zillizApi": {
-          "id": "your-zilliz-credential-id",
-          "name": "Zilliz API"
+          "id": "zilliz-credentials-id",
+          "name": "Zilliz Cloud API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "zillizDatabase": "default",
+        "zillizCollection": {
+          "mode": "string",
+          "value": "test_collection"
+        },
+        "queryVector": "[0.1, 0.2, 0.3, 0.4, 0.5]",
+        "topK": 5,
+        "options": {
+          "outputFields": "text,category,source",
+          "scoreThreshold": 0.7
+        }
+      },
+      "id": "3c4d5e6f-7890-abcd-ef12-34567890abcd",
+      "name": "Search Vectors",
+      "type": "n8n-nodes-zilliz.vectorStoreZillizLoad",
+      "typeVersion": 1,
+      "position": [680, 400],
+      "credentials": {
+        "zillizApi": {
+          "id": "zilliz-credentials-id",
+          "name": "Zilliz Cloud API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "createKnowledgeBase",
+        "zillizDatabase": "default",
+        "zillizCollection": {
+          "mode": "string",
+          "value": "rag_knowledge_base"
+        },
+        "embeddingSettings": {
+          "dimension": 1536,
+          "metricType": "COSINE"
+        }
+      },
+      "id": "4d5e6f78-90ab-cdef-1234-56789abcdef0",
+      "name": "Create RAG Knowledge Base",
+      "type": "n8n-nodes-zilliz.vectorStoreZillizRag",
+      "typeVersion": 1,
+      "position": [900, 200],
+      "credentials": {
+        "zillizApi": {
+          "id": "zilliz-credentials-id",
+          "name": "Zilliz Cloud API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "processAndStore",
+        "zillizDatabase": "default",
+        "zillizCollection": {
+          "mode": "string",
+          "value": "rag_knowledge_base"
+        },
+        "contentField": "content",
+        "titleField": "title",
+        "textProcessing": {
+          "cleanText": true,
+          "removeHtml": true,
+          "chunkSize": 1000,
+          "chunkOverlap": 200,
+          "minChunkSize": 50
+        },
+        "embeddingSettings": {
+          "embeddingField": "embedding"
+        }
+      },
+      "id": "5e6f7890-abcd-ef12-3456-789abcdef012",
+      "name": "Process and Store Document",
+      "type": "n8n-nodes-zilliz.vectorStoreZillizRag",
+      "typeVersion": 1,
+      "position": [900, 300],
+      "credentials": {
+        "zillizApi": {
+          "id": "zilliz-credentials-id",
+          "name": "Zilliz Cloud API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "queryWithContext",
+        "zillizDatabase": "default",
+        "zillizCollection": {
+          "mode": "string",
+          "value": "rag_knowledge_base"
+        },
+        "queryText": "What is the main topic of the document?",
+        "queryVector": "[0.1, 0.2, 0.3, ...]",
+        "searchOptions": {
+          "maxResults": 3,
+          "similarityThreshold": 0.8,
+          "includeMetadata": true
+        }
+      },
+      "id": "6f789012-3456-789a-bcde-f0123456789a",
+      "name": "Query with Context for AI Agent",
+      "type": "n8n-nodes-zilliz.vectorStoreZillizRag",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "credentials": {
+        "zillizApi": {
+          "id": "zilliz-credentials-id",
+          "name": "Zilliz Cloud API"
         }
       }
     }
@@ -78,29 +169,50 @@
       "main": [
         [
           {
-            "node": "Create Collection",
+            "node": "List Collections",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Collection": {
+    "List Collections": {
       "main": [
         [
           {
-            "node": "Insert Test Data",
-            "type": "main", 
+            "node": "Insert Vector",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Search Vectors",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create RAG Knowledge Base",
+            "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Insert Test Data": {
+    "Create RAG Knowledge Base": {
       "main": [
         [
           {
-            "node": "Search Similar Vectors",
+            "node": "Process and Store Document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process and Store Document": {
+      "main": [
+        [
+          {
+            "node": "Query with Context for AI Agent",
             "type": "main",
             "index": 0
           }
@@ -110,5 +222,10 @@
   },
   "active": false,
   "settings": {},
-  "versionId": "1"
+  "versionId": "f1e2d3c4-b5a6-9786-5432-109876543210",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "test-workflow-zilliz",
+  "tags": ["zilliz", "vector-database", "ai"]
 }
